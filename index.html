@@ -2,8 +2,8 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>图片色彩渐变生成器</title>
-    <!-- 使用正确版本的 Vibrant.js -->
+    <title>圖片色彩漸變生成器</title>
+    <!-- 使用正確版本的 Vibrant.js -->
     <script src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.0/dist/vibrant.min.js"></script>
     <style>
         body {
@@ -63,17 +63,17 @@
             <button onclick="generateGradient()">生成漸變背景</button>
             <button onclick="downloadImage()" id="downloadBtn" disabled>下載圖片</button>
         </div>
-
+        
         <img id="preview" alt="圖片預覽">
         <canvas id="gradientCanvas" width="1000" height="1000"></canvas>
         
         <div class="color-palette" id="colorPalette"></div>
     </div>
-
+    
     <script>
         let selectedColors = [];
 
-        // 图片上传处理
+        // 圖片上傳處理
         document.getElementById('imageInput').addEventListener('change', function(e) {
             const file = e.target.files[0];
             const reader = new FileReader();
@@ -87,7 +87,7 @@
             reader.readAsDataURL(file);
         });
 
-        // 生成渐变
+        // 生成漸變
         async function generateGradient() {
             const img = document.getElementById('preview');
             if (!img.src) return alert('請先上傳圖片');
@@ -110,15 +110,18 @@
                 canvas.style.display = 'block';
                 const ctx = canvas.getContext('2d');
                 
+                // Clear the canvas before applying new colors
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
                 createComplexGradient(ctx, selectedColors);
                 document.getElementById('downloadBtn').disabled = false;
             } catch (error) {
-                console.error('颜色提取失败:', error);
-                alert('颜色提取失败，请重试');
+                console.error('顏色提取失敗:', error);
+                alert('顏色提取失敗，請重試');
             }
         }
 
-        // 显示颜色板
+        // 顯示顏色板
         function displayColors(colors) {
             const container = document.getElementById('colorPalette');
             container.innerHTML = '';
@@ -131,11 +134,13 @@
             });
         }
 
-        // 创建复杂渐变
+        // 創建複雜漸變
         function createComplexGradient(ctx, colors) {
             const width = ctx.canvas.width;
             const height = ctx.canvas.height;
             
+            ctx.globalCompositeOperation = 'source-over'; // Ensure the base layer is fully opaque
+
             for(let i = 0; i < 5; i++) {
                 const grad = ctx.createRadialGradient(
                     Math.random() * width,
@@ -150,12 +155,12 @@
                 grad.addColorStop(1, `rgba(${hexToRgb(colors[i]).join(',')}, 0.2)`);
                 
                 ctx.fillStyle = grad;
-                ctx.globalCompositeOperation = i === 0 ? 'overlay' : 'soft-light';
+                ctx.globalCompositeOperation = i === 0 ? 'source-over' : 'overlay'; // Ensure subsequent layers blend correctly
                 ctx.fillRect(0, 0, width, height);
             }
         }
 
-        // 下载图片
+        // 下載圖片
         function downloadImage() {
             const canvas = document.getElementById('gradientCanvas');
             const link = document.createElement('a');
@@ -164,7 +169,7 @@
             link.click();
         }
 
-        // 辅助函数：Hex转RGB
+        // 輔助函數：Hex轉RGB
         function hexToRgb(hex) {
             const bigint = parseInt(hex.slice(1), 16);
             return [
