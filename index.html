@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>图片色彩渐变生成器</title>
+    <!-- 使用正确版本的 Vibrant.js -->
+    <script src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.0/dist/vibrant.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        .container {
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .upload-section {
+            margin-bottom: 20px;
+        }
+        #preview {
+            max-width: 300px;
+            margin: 10px 0;
+            display: none;
+        }
+        #gradientCanvas {
+            border: 2px solid #666;
+            margin: 20px 0;
+            display: none;
+        }
+        .color-palette {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .color-box {
+            width: 50px;
+            height: 50px;
+            border: 1px solid #000;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>測試標題</h1>
+    <div class="container">
+        <h1>圖片色彩漸變生成器</h1>
+        
+        <div class="upload-section">
+            <input type="file" id="imageInput" accept="image/*">
+            <button onclick="generateGradient()">生成漸變背景</button>
+            <button onclick="downloadImage()" id="downloadBtn" disabled>下載圖片</button>
+        </div>
+
+        <img id="preview" alt="圖片預覽">
+        <canvas id="gradientCanvas" width="1000" height="1000"></canvas>
+        
+        <div class="color-palette" id="colorPalette"></div>
+    </div>
+
+    <script>
+        let selectedColors = [];
+
+        // 图片上传处理
+        document.getElementById('imageInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            
+            reader.onload = function(event) {
+                const img = document.getElementById('preview');
+                img.src = event.target.result;
+                img.style.display = 'block';
+            }
+            
+            reader.readAsDataURL(file);
+        });
+
+        // 生成渐变
+        async function generateGradient() {
+            const img = document.getElementById('preview');
+            if (!img.src) return alert('請先上傳圖片');
+
+            try {
+                const vibrant = new Vibrant(img);
+                const palette = await vibrant.getPalette();
+                
+                selectedColors = [
+                    palette.Vibrant.getHex(),
+                    palette.Muted.getHex(),
+                    palette.DarkVibrant.getHex(),
+                    palette.LightVibrant.getHex(),
+                    palette.DarkMuted.getHex()
+                ];
+
+                displayColors(selectedColors);
+                
+                const canvas = document.getElementById('gradientCanvas');
+                canvas.style.display = 'block';
+                const ctx = canvas.getContext('2d');
+                
+                createComplexGradient(ctx, selectedColors);
+                document.getElementById('downloadBtn').disabled = false;
+            } catch (error) {
+                console.error('颜色提取失败:', error);
+                alert('颜色提取失败，请重试');
+            }
+        }
+
+        // 显示颜色板
+        function displayColors(colors) {
+            const container = document.getElementById('colorPalette');
+            container.innerHTML = '';
+            
+            colors.forEach(color => {
+                const div = document.createElement('div');
+                div.className = 'color-box';
+                div.style.backgroundColor = color;
+                container.appendChild(div);
+            });
+        }
+
+        // 创建复杂渐变
+        function createComplexGradient(ctx, colors) {
+            const width = ctx.canvas.width;
+            const height = ctx.canvas.height;
+            
+            for(let i = 0; i < 5; i++) {
+                const grad = ctx.createRadialGradient(
+                    Math.random() * width,
+                    Math.random() * height,
+                    0,
+                    Math.random() * width,
+                    Math.random() * height,
+                    Math.random() * 800 + 200
+                );
+                
+                grad.addColorStop(0, colors[i]);
+                grad.addColorStop(1, `rgba(${hexToRgb(colors[i]).join(',')}, 0.2)`);
+                
+                ctx.fillStyle = grad;
+                ctx.globalCompositeOperation = i === 0 ? 'overlay' : 'soft-light';
+                ctx.fillRect(0, 0, width, height);
+            }
+        }
+
+        // 下载图片
+        function downloadImage() {
+            const canvas = document.getElementById('gradientCanvas');
+            const link = document.createElement('a');
+            link.download = 'gradient-background.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        // 辅助函数：Hex转RGB
+        function hexToRgb(hex) {
+            const bigint = parseInt(hex.slice(1), 16);
+            return [
+                (bigint >> 16) & 255,
+                (bigint >> 8) & 255,
+                bigint & 255
+            ];
+        }
+    </script>
+</body>
+</html>
