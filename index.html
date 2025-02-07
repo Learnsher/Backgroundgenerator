@@ -2,13 +2,18 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>圖片色彩漸變生成器</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- 使用正確版本的 Vibrant.js -->
     <script src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.0/dist/vibrant.min.js"></script>
+    <!-- 引入 Material-UI 的 CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <!-- 引入 canvas-confetti 庫 -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.4.0/dist/confetti.browser.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 800px;
+            max-width: 100%;
             margin: 20px auto;
             padding: 20px;
         }
@@ -16,12 +21,17 @@
             border: 1px solid #ddd;
             padding: 20px;
             border-radius: 8px;
+            width: 100%;
+            box-sizing: border-box;
         }
         .upload-section {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
             margin-bottom: 20px;
         }
         #preview {
-            max-width: 300px;
+            max-width: 100%;
             margin: 10px 0;
             display: none;
         }
@@ -29,62 +39,141 @@
             border: 2px solid #666;
             margin: 20px 0;
             display: none;
+            width: 100%;
+            height: auto;
         }
         .color-palette {
             display: flex;
+            flex-wrap: nowrap;
             gap: 10px;
             margin: 10px 0;
+            overflow-x: auto;
         }
         .color-box {
             width: 50px;
             height: 50px;
             border: 1px solid #000;
+            transition: transform 0.2s;
+            cursor: pointer;
+        }
+        .color-box:hover {
+            transform: scale(1.1);
         }
         button {
             background: #007bff;
             color: white;
             border: none;
-            padding: 10px 20px;
+            padding: 10px;
             border-radius: 5px;
             cursor: pointer;
+            width: 100%;
         }
         button:hover {
             background: #0056b3;
         }
+        #loading {
+            display: none;
+            margin: 10px 0;
+            color: #666;
+        }
+        .dropzone {
+            border: 2px dashed #007bff;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+        }
+        .dropzone:hover {
+            background-color: #f0f8ff;
+        }
     </style>
 </head>
 <body>
-    <h1>測試標題</h1>
     <div class="container">
-        <h1>圖片色彩漸變生成器</h1>
-        
         <div class="upload-section">
-            <input type="file" id="imageInput" accept="image/*">
-            <button onclick="generateGradient()">生成漸變背景</button>
-            <button onclick="downloadImage()" id="downloadBtn" disabled>下載圖片</button>
+            <div class="dropzone" id="dropzone">
+                拖放圖片到這裡或點擊上傳
+            </div>
+            <input type="file" id="imageInput" accept="image/*" style="display: none;">
+            <button onclick="generateGradient()" class="btn">生成漸變背景</button>
+            <button onclick="downloadImage()" id="downloadBtn" class="btn" disabled>下載圖片</button>
+            <button onclick="downloadLargeImage()" id="downloadLargeBtn" class="btn" disabled>下載三倍大圖片</button>
+            <button onclick="shareImage()" id="shareBtn" class="btn" disabled>分享圖片</button>
         </div>
         
-        <img id="preview" alt="圖片預覽">
-        <canvas id="gradientCanvas" width="1000" height="1000"></canvas>
+        <div id="loading">生成中，請稍候...</div>
         
         <div class="color-palette" id="colorPalette"></div>
+        
+        <canvas id="gradientCanvas" width="1000" height="1000" style="width: 100%; height: auto;"></canvas>
+        
+        <img id="preview" alt="圖片預覽" style="display: none;">
     </div>
     
     <script>
         let selectedColors = [];
 
         // 圖片上傳處理
-        document.getElementById('imageInput').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            const reader = new FileReader();
-            
-            reader.onload = function(event) {
-                const img = document.getElementById('preview');
-                img.src = event.target.result;
-                img.style.display = 'block';
+        const dropzone = document.getElementById('dropzone');
+        const imageInput = document.getElementById('imageInput');
+
+        dropzone.addEventListener('click', () => imageInput.click());
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.classList.add('active');
+        });
+        dropzone.addEventListener('dragleave', () => dropzone.classList.remove('active'));
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('active');
+            const file = e.dataTransfer.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = function() {
+                        // 繪製低解析度的預覽
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        const scaleFactor = 0.2; // 設置縮放因子
+                        canvas.width = img.width * scaleFactor;
+                        canvas.height = img.height * scaleFactor;
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        
+                        const previewImg = document.getElementById('preview');
+                        previewImg.src = canvas.toDataURL(); // 使用低解析度的圖片
+                        previewImg.style.display = 'block';
+                    }
+                }
+                reader.readAsDataURL(file);
             }
-            
-            reader.readAsDataURL(file);
+        });
+
+        // 監聽文件選擇事件
+        imageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = function() {
+                        // 繪製低解析度的預覽
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        const scaleFactor = 0.2; // 設置縮放因子
+                        canvas.width = img.width * scaleFactor;
+                        canvas.height = img.height * scaleFactor;
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        
+                        const previewImg = document.getElementById('preview');
+                        previewImg.src = canvas.toDataURL(); // 使用低解析度的圖片
+                        previewImg.style.display = 'block';
+                    }
+                }
+                reader.readAsDataURL(file);
+            }
         });
 
         // 生成漸變
@@ -92,6 +181,8 @@
             const img = document.getElementById('preview');
             if (!img.src) return alert('請先上傳圖片');
 
+            // 顯示加載提示
+            document.getElementById('loading').style.display = 'block';
             try {
                 const vibrant = new Vibrant(img);
                 const palette = await vibrant.getPalette();
@@ -110,14 +201,19 @@
                 canvas.style.display = 'block';
                 const ctx = canvas.getContext('2d');
                 
-                // Clear the canvas before applying new colors
+                // 清除畫布
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 
+                // 創建複雜漸變
                 createComplexGradient(ctx, selectedColors);
                 document.getElementById('downloadBtn').disabled = false;
+                document.getElementById('downloadLargeBtn').disabled = false;
             } catch (error) {
                 console.error('顏色提取失敗:', error);
-                alert('顏色提取失敗，請重試');
+                alert('錯誤：圖片可能不支援或尺寸過大，請嘗試其他圖片。');
+            } finally {
+                // 隱藏加載提示
+                document.getElementById('loading').style.display = 'none';
             }
         }
 
@@ -130,6 +226,12 @@
                 const div = document.createElement('div');
                 div.className = 'color-box';
                 div.style.backgroundColor = color;
+                // 添加色碼顯示
+                const span = document.createElement('span');
+                span.textContent = color;
+                span.style.display = 'block';
+                span.style.fontSize = '10px';
+                div.appendChild(span);
                 container.appendChild(div);
             });
         }
@@ -139,7 +241,7 @@
             const width = ctx.canvas.width;
             const height = ctx.canvas.height;
             
-            ctx.globalCompositeOperation = 'source-over'; // Ensure the base layer is fully opaque
+            ctx.globalCompositeOperation = 'source-over'; // 確保基礎層完全不透明
 
             for(let i = 0; i < 5; i++) {
                 const grad = ctx.createRadialGradient(
@@ -155,7 +257,7 @@
                 grad.addColorStop(1, `rgba(${hexToRgb(colors[i]).join(',')}, 0.2)`);
                 
                 ctx.fillStyle = grad;
-                ctx.globalCompositeOperation = i === 0 ? 'source-over' : 'overlay'; // Ensure subsequent layers blend correctly
+                ctx.globalCompositeOperation = i === 0 ? 'source-over' : 'overlay'; // 確保後續層正確混合
                 ctx.fillRect(0, 0, width, height);
             }
         }
@@ -167,6 +269,50 @@
             link.download = 'gradient-background.png';
             link.href = canvas.toDataURL('image/png');
             link.click();
+            generateFireworks(); // 生成煙火動畫
+        }
+
+        // 生成煙火動畫
+        function generateFireworks() {
+            const colors = selectedColors;
+            const duration = 3 * 1000; // 持續時間
+            const animationEnd = Date.now() + duration;
+
+            const interval = setInterval(() => {
+                const timeLeft = animationEnd - Date.now();
+                if (timeLeft <= 0) {
+                    clearInterval(interval);
+                    return;
+                }
+
+                confetti({
+                    particleCount: 100,
+                    angle: Math.random() * 360,
+                    spread: 70,
+                    origin: {
+                        x: Math.random(),
+                        y: Math.random() - 0.2
+                    },
+                    colors: colors,
+                    scalar: 1.2 // 調整煙火大小
+                });
+            }, 250);
+        }
+
+        // 下載三倍大圖片
+        function downloadLargeImage() {
+            const canvas = document.getElementById('gradientCanvas');
+            const largeCanvas = document.createElement('canvas');
+            largeCanvas.width = canvas.width * 3; // 設置為三倍大小
+            largeCanvas.height = canvas.height * 3;
+            const ctx = largeCanvas.getContext('2d');
+            ctx.scale(3, 3); // 縮放上下文以繪製原始畫布內容
+            ctx.drawImage(canvas, 0, 0);
+            
+            const link = document.createElement('a');
+            link.download = 'gradient-background-large.png';
+            link.href = largeCanvas.toDataURL('image/png');
+            link.click();
         }
 
         // 輔助函數：Hex轉RGB
@@ -177,6 +323,32 @@
                 (bigint >> 8) & 255,
                 bigint & 255
             ];
+        }
+
+        // 分享圖片
+        async function shareImage() {
+            const canvas = document.getElementById('gradientCanvas');
+            const imageBlob = await new Promise(resolve => {
+                canvas.toBlob(resolve, 'image/png');
+            });
+
+            if (navigator.share) {
+                const file = new File([imageBlob], 'gradient-background.png', { type: 'image/png' });
+                const shareData = {
+                    title: '分享漸變背景',
+                    text: '這是一個我生成的漸變背景圖片！',
+                    files: [file]
+                };
+
+                try {
+                    await navigator.share(shareData);
+                    console.log('分享成功');
+                } catch (error) {
+                    console.error('分享失敗:', error);
+                }
+            } else {
+                alert('此瀏覽器不支援分享功能。');
+            }
         }
     </script>
 </body>
